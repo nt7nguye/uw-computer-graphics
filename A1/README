@@ -1,0 +1,15 @@
+Compilation:
+
+Under cs488 directory:
+cd A1
+premake4 gmake
+make
+./A1
+
+Manual:
++ Block height scales from 0.3f - 3.0f in 0.1f increments
++ Zoom from 0.3f - 3.0f in 0.1f increments
++ Persistence rate depends on drag rate in magnitude of (delta x / 1000)
++ Right-click to break persistence, it could be broken with key press but I'm
+assuming "buttons" in the requirement means mouse button (and not left since its used to trigger rotation).
+The code to break is just 'rotating_rate = 0.0f' commented out in KeyPress handler

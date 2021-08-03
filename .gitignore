@@ -1,0 +1,6 @@
+# Swap files
+*.swp
+
+*.vscode/
+
+build/

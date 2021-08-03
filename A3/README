@@ -1,0 +1,46 @@
+Run as usual:
+
+cd A3
+premake4 gmake
+make
+./A3 Assets/puppet.lua
+
+Puppet note:
++ The movement angles are pretty limited because Spongebob is pretty much a square
++ I wanted to do a much prettier Spongebob but I got too busy at work :'(
+
+Hierarchical model structure (in brackets are add-on cosmetics)
+
+                                    head (+ eyes)
+                                        |
+                                    neckJoint
+                                        |
+                                    neckNode (+ tie1 + tie2)
+                                        |
+                                      neck
+                                        |
+leftUpperArmJoint -leftUpperArmNode - torso - ... (rightArm is parallel to left side)
+  |                                     |
+leftUpperArm                          waistNode
+  |                                     |
+leftLowerArmNode                      waistJoint
+  |                                     |
+leftLowerArmNode                      waist
+  |                                 /       \  (rightLeg is parallel to left side)
+leftLowerAramJoint             leftThighNode   ....
+  |                                 |
+leftHandNode                    leftThighJoint
+  |                                 |
+leftHandJoint                   leftThigh
+  |                                 |
+leftHand                        leftShankNode
+                                    |
+                                leftShankJoint
+                                    |
+                                 leftShank
+                                    |
+                                leftFootNode
+                                    |
+                                 leftFootJoint
+                                    |
+                                 leftFoot

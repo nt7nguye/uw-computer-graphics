@@ -1,0 +1,4 @@
+#pragma once
+
+#define ENABLE_ANTI_ALIASING 1
+#define MIRROR_REFLECTIONS 1

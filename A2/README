@@ -1,0 +1,11 @@
+Compiled as usual under cs488 directory:
+cd A2
+premake4 gmake
+make
+
+Then run with A2
+./A2
+
+
++ Model axis: red, blue, green (RGB)
++ World axis: yellow, light blue, purple (2 of each of RGB) 

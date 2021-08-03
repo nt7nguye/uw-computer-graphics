@@ -1,0 +1,20 @@
+Compilation as usual:
+
+cd A4
+premake4 gmake
+make
+
+Run from Assets/ folder to correctly get .obj files. Copied the results to Images/ folder
+
+screenshot.png would be the custom scene from 'sample.png'
+
+Additional implementations:
+
++ Mirror reflection, set as 6 levels of reflection recursion.
+
++ Anti aliasing with 9 rays per pixel. Decreases the choppiness but I think it looks worse, maybe the randomized ray directions are not high enough or not enough total rays.
+
++ Progress bar when rendering.
+
+Both extra options can be set from 'ExtraFeature.hpp'
+

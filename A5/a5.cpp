@@ -18,8 +18,8 @@ using namespace std;
 using namespace glm;
 
 static const float PADDING = 0.0001;
-static const int noiseWidth = 1024;
-static const int noiseHeight = 1024;
+static const int noiseWidth = 512;
+static const int noiseHeight = 512;
 double noise[noiseWidth][noiseHeight];
 
 struct ThreadData
@@ -54,6 +54,7 @@ vec3 random_small_vec()
 	return p;
 }
 
+#ifdef ENABLE_TEXTURE_MAPPING // ================================== End texture mapping
 double smoothNoise(double x, double y)
 {
    //get fractional part of x and y
@@ -136,9 +137,10 @@ vec3 cloud_texture_mapping(
 	uint y)
 {	
     float L = 192 + (uint)(turbulence(x, y, 64)) / 4;
-	// HSL = (169, 255, L)
 	return HSLtoRGB(169.0, 255.0, L);
 }
+
+#endif // Background texture map
 
 vec3 trace_color(
 	Ray &ray,
@@ -190,6 +192,12 @@ vec3 trace_color(
 			float reflect_coef = 0.2;
 			color = glm::mix(color, trace_color(reflection_ray, root, eye, ambient, lights, maxHits - 1), reflect_coef);
 		}
+
+
+	}
+	else {
+		vec3 unit_direction = glm::normalize(ray.Get_direction());
+		color += cloud_texture_mapping(abs(unit_direction.x) * noiseWidth, abs(unit_direction.y) * noiseHeight);
 	}
 	return color;
 }
@@ -203,8 +211,8 @@ void *A5_Render_Thread(void *data)
 		for (uint y = d->y_start; y < d->y_end; ++y)
 		{
 			// cout << x << " " << y << endl;
-			float _y = (float) y / 1024;
-			float _x = (float) x / 1024;
+			float _y = (float) y / noiseHeight;
+			float _x = (float) x / noiseWidth;
 			int _x_chunk = (float) x / 1024 * 8;
 
 			vec3 direction = d->BL_corner_direction + (float)(d->h - y) * d->_v + (float)x * d->_u;
@@ -212,7 +220,7 @@ void *A5_Render_Thread(void *data)
 #ifdef ENABLE_DEPTH_OF_FIELD
 			vec3 color;
 
-			int random_eye_pos = 10 + 1;
+			int random_eye_pos = 10;
 
 			float focal_plane = 800.0f; // relative to eye position
 			for (int i = 0; i < random_eye_pos; i++)
@@ -253,10 +261,6 @@ void *A5_Render_Thread(void *data)
 			color /= AA;
 #endif
 			
-			if (color == vec3(0, 0, 0)) {
-				color = cloud_texture_mapping(x, y);
-			}
-
 			// Red:
 			d->image(x, y, 0) = (double)color.r;
 			// Green:

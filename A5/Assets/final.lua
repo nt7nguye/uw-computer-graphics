@@ -1,5 +1,5 @@
 
-for i=180, 360 do
+for i=100, 140 do
 	glass = gr.material({0.7, 1.0, 0.7}, {0.5, 0.7, 0.5}, 25, 0.3, 1.0)
 
 	color_increase = i / 360

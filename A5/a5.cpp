@@ -142,13 +142,74 @@ vec3 cloud_texture_mapping(
 
 #endif // Background texture map
 
+
+vec3 motion_blur_trace_color(Ray &ray,
+            SceneNode *root,
+            const glm::vec3 & eye,
+            const glm::vec3 & ambient,
+            const std::list<Light *> & lights) {
+	HitRecord record;
+    vec3 color(0.0f);
+	// cout << "ray from " << to_string(ray.origin) << endl;
+	// cout << "ray direction " << to_string(normalize(ray.direction)) << endl;
+
+	if ( root->hit( ray, 0, numeric_limits<float>::max(), record ) ) {
+		// hit
+		record.normal = normalize(record.normal);
+		// cout << "normal " << to_string(record.normal) << endl;
+		// cout << "hit point " << to_string(record.hit_point) << endl;
+		record.hit_point += record.normal * PADDING;
+
+		PhongMaterial *material = static_cast<PhongMaterial *>(record.material);
+
+		// ambient
+		color += material->diffuse() * ambient;
+
+		for (Light * light : lights) {
+			Ray shadowRay(record.hit_point, light->position - record.hit_point);
+			HitRecord shadowRay_record;
+			
+			// if light is blocked, skip calculating 
+			if (root->hit( shadowRay, 0, numeric_limits<float>::max(), shadowRay_record)) {
+			// length(shadowRay_record.hit_point - record.hit_point) <= length(light->position - record.hit_point)) {
+				continue;
+			}
+
+			float soft_shadow_coef = 1;
+
+			// cout << *light << " light isn't blocked" << endl;
+
+			vec3 L = normalize(shadowRay.Get_direction());
+			vec3 N = record.normal;
+			vec3 R = normalize(2 * N * dot(N, L) - L);
+			vec3 V = normalize(eye - record.hit_point);
+			double r = length(shadowRay.Get_direction());
+
+		// cout << "diffuse "<< dot(L, N) << endl;
+		// cout << "specular " << dot(R, V) << ", " << material->shininess() << ", " << pow(glm::max(0.0, (double)dot(R, V)), material->shininess()) << endl;
+		
+			double attenuation = 1.0 / ( light->falloff[0] + light->falloff[1] * r + light->falloff[2] * r * r );
+
+			// diffuse
+			color += dot(L, N) * attenuation * material->diffuse() * light->colour * soft_shadow_coef;
+
+			// specular
+			color += pow(glm::max(0.0, (double)dot(R, V)), material->shininess()) * attenuation * material->specular() * light->colour * soft_shadow_coef;
+		}
+
+	}
+
+	return color; 
+}
+
 vec3 trace_color(
 	Ray &ray,
 	SceneNode *root,
 	const glm::vec3 &eye,
 	const glm::vec3 &ambient,
 	const std::list<Light *> &lights,
-	const int maxHits = 5)
+	const int maxHits = 5,
+	const int refraction_counter = 0)
 {
 	HitRecord record;
 	vec3 color;
@@ -204,13 +265,12 @@ vec3 trace_color(
 				vec3 reflect_orthonormal_u = cross(reflection_direction, record.normal);
 				vec3 reflect_orthonormal_v = cross(reflect_orthonormal_u, reflection_direction);
 				float reflection_a = 0.3f; // 2D square to blur
-				srand(0);
 				int reflective_rays = 10 + 1;
 				// cout << "reflective_rays " << reflective_rays << endl;
 				refleciton_color /= reflective_rays;
 				for (int i = 0; i < reflective_rays - 1; i++) {
-					float u = -reflection_a/2 + rand_float() * reflection_a;
-					float v = -reflection_a/2 + rand_float() * reflection_a;
+					float u = -reflection_a/2 + random_float() * reflection_a;
+					float v = -reflection_a/2 + random_float() * reflection_a;
 
 					vec3 glossy_reflection = reflection_direction + u * reflect_orthonormal_u + v * reflect_orthonormal_v;
 					glossy_reflection = normalize(glossy_reflection);
@@ -229,7 +289,7 @@ vec3 trace_color(
 				
 				// if (refraction_counter % 2 == 1 && direction != vec3(0.0f)) {
 				// 	// cout << refraction_counter << " straight back " << to_string(direction) << " \n";
-				// 	Ray refraction_ray(record.hit_point - 2 * record.normal * Correction, direction);
+				// 	Ray refraction_ray(record.hit_point - 2 * record.normal * PADDING, direction);
 				// 	refraciton_color = trace_color(refraction_ray, root, eye, ambient, lights, maxHits - 1, direction, refraction_counter + 1);
 				// } else {
 				double eta = pm->refraction_ratio();
@@ -239,7 +299,7 @@ vec3 trace_color(
 				// cout << "c2 is " << c2 << endl;
 				if (c2 <= 0) return color;
 				vec3 refraction_direction = eta * ray.Get_direction() + (eta * c1 - sqrt(c2)) * record.normal;
-				Ray refraction_ray(record.hit_point - 2 * record.normal * Correction, refraction_direction);
+				Ray refraction_ray(record.hit_point - 2 * record.normal * PADDING, refraction_direction);
 				// cout << refraction_counter << " refraction " << c1 << " " << c2 << " " << to_string(refraction_direction) << " " <<
 				// to_string(ray.direction) << " \n";
 				refraciton_color = trace_color(refraction_ray, root, eye, ambient, lights, 0, refraction_counter + 1);
@@ -256,13 +316,13 @@ vec3 trace_color(
 				// cout << "refractive_rays " << refractive_rays << endl;
 				refraciton_color /= refractive_rays;
 				for (int i = 0; i < refractive_rays - 1; i++) {
-					float u = -refract_a/2 + rand_float() * refract_a;
-					float v = -refract_a/2 + rand_float() * refract_a;
+					float u = -refract_a/2 + random_float() * refract_a;
+					float v = -refract_a/2 + random_float() * refract_a;
 
 					vec3 glossy_refraction = refraction_direction + u * refract_orthonormal_u + v * refract_orthonormal_v;
 					glossy_refraction = normalize(glossy_refraction);
 					float cosi = dot(glossy_refraction, refraction_direction);
-					Ray glossy_refraction_ray(record.hit_point - 2 * record.normal * Correction, glossy_refraction);
+					Ray glossy_refraction_ray(record.hit_point - 2 * record.normal * PADDING, glossy_refraction);
 					// cout << to_string(glossy_refraction) << " weight " << cosi << endl;
 					// cout << i << " is " << to_string(refraction_direction) << endl;
 					refraciton_color += cosi / refractive_rays * trace_color(glossy_refraction_ray, root, eye, ambient, lights, maxHits-1, refraction_counter);
@@ -281,7 +341,7 @@ vec3 trace_color(
 	}
 	else {
 		vec3 unit_direction = glm::normalize(ray.Get_direction());
-		color += cloud_texture_mapping(abs(unit_direction.x) * noiseWidth, abs(unit_direction.y) * noiseHeight);
+		color += cloud_texture_mapping(noiseWidth / 2 + unit_direction.x / 2 * noiseWidth, noiseHeight / 2 + unit_direction.y / 2 * noiseHeight);
 	}
 	return color;
 }
@@ -306,7 +366,7 @@ void *A5_Render_Thread(void *data)
 
 			int random_eye_pos = 10;
 
-			float focal_plane = 300.0f; // relative to eye position
+			float focal_plane = 800.0f; // relative to eye position
 			for (int i = 0; i < random_eye_pos; i++)
 			{
 
@@ -373,9 +433,11 @@ void A5_Render(
 
 	// Lighting parameters
 	const glm::vec3 &ambient,
-	const std::list<Light *> &lights)
+	const std::list<Light *> &lights,
+	
+	int t)
 {
-
+	srand(0);
 	// Fill in raytracing code here...
 
 	std::cout << "F20: Calling A5_Render(\n"
@@ -401,7 +463,7 @@ void A5_Render(
 	for (int y = 0; y < h; y++) {
 		for (int x = 0; x < w; x++)
 		{
-			noise[y][x] = (double) (rand() % 32768) / 32768.0;
+			noise[y][x] = (double) ((rand() + t) % 32768) / 32768.0;
 		}
 	}
 
@@ -487,6 +549,44 @@ void A5_Render(
 		pthread_join(threads[i], NULL);
 		delete datas[i];
 	}
+
+#ifdef ENABLE_MOTION_BLUR
+	int mix_times = 10; 
+		// cout << BL_corner_direction.x << " " << BL_corner_direction.y << " " << BL_corner_direction.z << endl;
+	for (int i = 0; i < mix_times; i++) {
+		float time = random_float();
+		for (uint y = 0; y < h; ++y) {
+			for (uint x = 0; x < w; ++x) {
+				// cout << x << " " << y << endl;
+				const vec3 direction = BL_corner_direction + (float)(h - y) * _v + (float)x * _u;
+				// cout << direction.x << " " << direction.y << " " << direction.z << endl;
+				
+				// cout << "time is " << time << endl;
+				Ray ray = Ray(eye, direction, time);
+				// cout << "time is " << ray.get_time() << endl;
+
+				vec3 color;
+				color.r = image(x, y, 0);
+				color.g = image(x, y, 1);
+				color.b = image(x, y, 2);
+
+
+				vec3 motion_blur_color = motion_blur_trace_color(ray, root, eye, ambient, lights);
+				if (motion_blur_color != vec3(0.0f)) {
+					color = glm::mix(color, motion_blur_color, 0.1f);
+				}
+				// Red: 
+				image(x, y, 0) = (double)color.r;
+				// Green: 
+				image(x, y, 1) = (double)color.g;
+				// Blue: 
+				image(x, y, 2) = (double)color.b;
+			}
+		}
+	}
+#endif
+
+
 	cout.flush();
 	cout << endl
 		 << "Done" << endl;

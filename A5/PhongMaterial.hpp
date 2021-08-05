@@ -1,4 +1,4 @@
-// Termm--Fall 2020
+// Winter 2019
 
 #pragma once
 
@@ -9,15 +9,23 @@
 class PhongMaterial : public Material {
 public:
   PhongMaterial(const glm::vec3& kd, const glm::vec3& ks, double shininess);
+  PhongMaterial(const glm::vec3& kd, const glm::vec3& ks, double shininess,
+   double reflect, double refract, double refract_ratio);
   virtual ~PhongMaterial();
   glm::vec3 diffuse();
   glm::vec3 specular();
   double shininess();
-
+  double reflectiveness();
+  double refractiveness();
+  double refraction_ratio();
 
 private:
   glm::vec3 m_kd;
   glm::vec3 m_ks;
 
   double m_shininess;
+  double m_reflectiveness;
+  double m_refractiveness;
+  
+  double m_refraction_ratio;
 };

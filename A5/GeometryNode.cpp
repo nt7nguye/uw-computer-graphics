@@ -38,7 +38,7 @@ bool GeometryNode::hit(
 	float t_max, 
 	HitRecord &record
 ) {
-	Ray transformedRay(vec3(invtrans * vec4(ray.origin, 1.0)), vec3(invtrans * vec4(ray.direction, 0.0)));
+	Ray transformedRay(vec3(invtrans * vec4(ray.origin, 1.0)), vec3(invtrans * vec4(ray.direction, 0.0)), ray.get_time());
 
 	HitRecord tmp_record;
 	float closest = t_max;

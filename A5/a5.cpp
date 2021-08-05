@@ -187,12 +187,96 @@ vec3 trace_color(
 
 		if (maxHits > 0)
 		{
-			vec3 reflection_direction = ray.Get_direction() - 2 * record.normal * dot(ray.Get_direction(), record.normal);
-			Ray reflection_ray(record.hit_point, reflection_direction);
-			float reflect_coef = 0.2;
-			color = glm::mix(color, trace_color(reflection_ray, root, eye, ambient, lights, maxHits - 1), reflect_coef);
-		}
+			PhongMaterial* pm = dynamic_cast<PhongMaterial*>(record.material);
+			if (pm != nullptr) {
+				// reflection
+				ray.direction = normalize(ray.Get_direction());
+				float cos_theta = dot(ray.Get_direction(), record.normal);
+				vec3 refleciton_color = vec3(0.0f);
+#ifdef ENABLE_REFLECTION
+				vec3 reflection_direction = ray.Get_direction() - 2 * record.normal * cos_theta;
+				Ray reflection_ray(record.hit_point, reflection_direction);
+				// cout << "relection ray " << to_string(reflection_ray.origin) << endl;
+				// float reflect_coef = 0.2;
+				refleciton_color = trace_color(reflection_ray, root, eye, ambient, lights, maxHits - 1);
+#ifdef ENABLE_GLOSSY_REFLECTION
+				reflection_direction = normalize(reflection_direction);
+				vec3 reflect_orthonormal_u = cross(reflection_direction, record.normal);
+				vec3 reflect_orthonormal_v = cross(reflect_orthonormal_u, reflection_direction);
+				float reflection_a = 0.3f; // 2D square to blur
+				srand(0);
+				int reflective_rays = 10 + 1;
+				// cout << "reflective_rays " << reflective_rays << endl;
+				refleciton_color /= reflective_rays;
+				for (int i = 0; i < reflective_rays - 1; i++) {
+					float u = -reflection_a/2 + rand_float() * reflection_a;
+					float v = -reflection_a/2 + rand_float() * reflection_a;
 
+					vec3 glossy_reflection = reflection_direction + u * reflect_orthonormal_u + v * reflect_orthonormal_v;
+					glossy_reflection = normalize(glossy_reflection);
+					float cosi = dot(glossy_reflection, reflection_direction);
+					Ray glossy_reflection_ray(record.hit_point, glossy_reflection);
+					// cout << to_string(glossy_reflection) << " weight " << cosi << endl;
+					// cout << i << " is " << to_string(refleciton_color) << endl;
+					refleciton_color += cosi / reflective_rays * trace_color(glossy_reflection_ray, root, eye, ambient, lights, 0, refraction_counter);
+				}
+				// cout << to_string(refleciton_color) << endl;
+#endif
+#endif
+				// refraction 
+				vec3 refraciton_color = vec3(0.0f);
+#ifdef ENABLE_REFRACTION
+				
+				// if (refraction_counter % 2 == 1 && direction != vec3(0.0f)) {
+				// 	// cout << refraction_counter << " straight back " << to_string(direction) << " \n";
+				// 	Ray refraction_ray(record.hit_point - 2 * record.normal * Correction, direction);
+				// 	refraciton_color = trace_color(refraction_ray, root, eye, ambient, lights, maxHits - 1, direction, refraction_counter + 1);
+				// } else {
+				double eta = pm->refraction_ratio();
+				if (refraction_counter % 2 == 1) eta = 1/eta;
+				float c1 = -cos_theta;
+				float c2 = (1-pow(eta,2)*(1-pow(c1,2)));
+				// cout << "c2 is " << c2 << endl;
+				if (c2 <= 0) return color;
+				vec3 refraction_direction = eta * ray.Get_direction() + (eta * c1 - sqrt(c2)) * record.normal;
+				Ray refraction_ray(record.hit_point - 2 * record.normal * Correction, refraction_direction);
+				// cout << refraction_counter << " refraction " << c1 << " " << c2 << " " << to_string(refraction_direction) << " " <<
+				// to_string(ray.direction) << " \n";
+				refraciton_color = trace_color(refraction_ray, root, eye, ambient, lights, 0, refraction_counter + 1);
+				// }
+
+#ifdef ENABLE_GLOSSY_REFRACTION
+				refraction_direction = normalize(refraction_direction);
+				// cout << to_string(refraction_direction) << endl;
+				vec3 refract_orthonormal_u = cross(refraction_direction, -record.normal);
+				vec3 refract_orthonormal_v = cross(refract_orthonormal_u, refraction_direction);
+				float refract_a = 0.3f;
+
+				int refractive_rays = 5 + 1;
+				// cout << "refractive_rays " << refractive_rays << endl;
+				refraciton_color /= refractive_rays;
+				for (int i = 0; i < refractive_rays - 1; i++) {
+					float u = -refract_a/2 + rand_float() * refract_a;
+					float v = -refract_a/2 + rand_float() * refract_a;
+
+					vec3 glossy_refraction = refraction_direction + u * refract_orthonormal_u + v * refract_orthonormal_v;
+					glossy_refraction = normalize(glossy_refraction);
+					float cosi = dot(glossy_refraction, refraction_direction);
+					Ray glossy_refraction_ray(record.hit_point - 2 * record.normal * Correction, glossy_refraction);
+					// cout << to_string(glossy_refraction) << " weight " << cosi << endl;
+					// cout << i << " is " << to_string(refraction_direction) << endl;
+					refraciton_color += cosi / refractive_rays * trace_color(glossy_refraction_ray, root, eye, ambient, lights, maxHits-1, refraction_counter);
+				}
+#endif
+
+#endif
+				float reflect_coef = pm->reflectiveness();
+				float refract_coef = pm->refractiveness();
+				// cout << " color is " << to_string(color) << endl;
+				color = (1-reflect_coef-refract_coef) * color + reflect_coef * refleciton_color + refract_coef * refraciton_color;
+				// cout << " color is " << to_string(color) << endl;
+			}
+		}
 
 	}
 	else {
@@ -222,7 +306,7 @@ void *A5_Render_Thread(void *data)
 
 			int random_eye_pos = 10;
 
-			float focal_plane = 800.0f; // relative to eye position
+			float focal_plane = 300.0f; // relative to eye position
 			for (int i = 0; i < random_eye_pos; i++)
 			{
 

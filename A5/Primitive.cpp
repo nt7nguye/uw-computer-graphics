@@ -1,8 +1,8 @@
-// Termm--Fall 2020
-
-#include "Primitive.hpp"
+// Winter 2019
 #include <glm/glm.hpp>
+#include <vector>
 
+#include <iostream>
 #include "Ray.hpp"
 #include "Primitive.hpp"
 #include "polyroots.hpp"
@@ -11,6 +11,7 @@
 
 using namespace glm;
 using namespace std;
+
 
 Primitive::~Primitive()
 {
@@ -26,6 +27,7 @@ Sphere::Sphere() {
 
 Sphere::~Sphere()
 {
+    delete m_nonhier_sphere;
 }
 
 bool Sphere::hit( Ray &ray, float t_min, float t_max, HitRecord &record) {
@@ -44,12 +46,30 @@ bool Cube::hit(Ray &ray, float t_min, float t_max, HitRecord &record) {
     return m_nonhier_cube->hit(ray, t_min, t_max, record);
 }
 
+NonhierSphere::NonhierSphere(const glm::vec3& pos, double radius)
+    : m_pos(pos), m_radius(radius), velocity(0.0f)
+  {
+  }
+
+NonhierSphere::NonhierSphere(const glm::vec3& pos, double radius, const glm::vec3 v)
+ : m_pos(pos), m_radius(radius), velocity(v) {
+}
+
 NonhierSphere::~NonhierSphere()
 {
 }
 
 bool NonhierSphere::hit(Ray &ray, float t_min, float t_max, HitRecord &record) {
-   vec3 dis_oc = ray.Get_origin() - m_pos;
+	
+    /*
+        [(origin + t * direction) - center]^2 = radius^2
+        d^2*t^2 + 2 * (o-c) * d * t + (o-c)^2 - r^2 = 0
+    */
+   vec3 pos = m_pos + ray.get_time() * velocity;
+//    cout << "ray time is " << ray.get_time() << endl;
+//    cout << "pos is " << to_string(pos) << endl;
+
+   vec3 dis_oc = ray.Get_origin() - pos;
 
    double A = dot(ray.Get_direction(), ray.Get_direction());
    double B = 2 * dot(ray.Get_direction(), dis_oc);
@@ -67,8 +87,13 @@ bool NonhierSphere::hit(Ray &ray, float t_min, float t_max, HitRecord &record) {
         t = glm::min(roots[0], roots[1]);
     }
 
+    // cout << "Nsphere current root is " << n_roots  <<" " << roots[0] << " " << roots[1] << endl;
+
     if ( t <= t_min || t >= t_max ) return false;
 
+    // cout << "pass interval check " << t_min  <<" " <<t_max << endl;
+    
+    // record
     record.t = t;
     record.hit_point = ray.At_t(t);
     record.normal = record.hit_point - m_pos;
@@ -79,7 +104,7 @@ bool NonhierSphere::hit(Ray &ray, float t_min, float t_max, HitRecord &record) {
 NonhierBox::NonhierBox(const glm::vec3& pos, double size)
     : m_pos(pos), m_size(size)
   {
-    std::vector<glm::vec3> vertices(8);
+    vertices.resize(8);
     vertices[0] = m_pos + glm::vec3(0.0, 0.0, 0.0);
     vertices[1] = m_pos + glm::vec3(m_size, 0.0, 0.0);
     vertices[2] = m_pos + glm::vec3(m_size, 0.0, m_size);
@@ -89,22 +114,22 @@ NonhierBox::NonhierBox(const glm::vec3& pos, double size)
     vertices[6] = m_pos + glm::vec3(m_size, m_size, m_size);
     vertices[7] = m_pos + glm::vec3(0.0, m_size, m_size);
     
-    std::vector<glm::vec3> triangle_inx = {
-      glm::vec3(0, 1, 2),
-      glm::vec3(0, 2, 3),
-      glm::vec3(0, 7, 4),
-      glm::vec3(0, 3, 7),
-      glm::vec3(0, 4, 5),
-      glm::vec3(0, 5, 1),
-      glm::vec3(6, 2, 1),
-      glm::vec3(6, 1, 5),
-      glm::vec3(6, 5, 4),
-      glm::vec3(6, 4, 7),
-      glm::vec3(6, 7, 3),
-      glm::vec3(6, 3, 2)
+    std::vector<Triangle> triangle_inx = {
+      Triangle(0, 1, 2),
+      Triangle(0, 2, 3),
+      Triangle(0, 7, 4),
+      Triangle(0, 3, 7),
+      Triangle(0, 4, 5),
+      Triangle(0, 5, 1),
+      Triangle(6, 2, 1),
+      Triangle(6, 1, 5),
+      Triangle(6, 5, 4),
+      Triangle(6, 4, 7),
+      Triangle(6, 7, 3),
+      Triangle(6, 3, 2)
     };
 
-    m_mesh = new Mesh(vertices, triangle_inx);
+    m_mesh = new Mesh(&vertices, triangle_inx);
   }
 
 NonhierBox::~NonhierBox()
